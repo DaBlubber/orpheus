@@ -1,0 +1,23 @@
+<!-- Orpheus - Pfeil, der aus einem geoeffneten Speicher aufsteigt.
+     Quellgrafik zur Dokumentation. Das ausgelieferte Symbol ist orpheus.ico,
+     erzeugt von make_icon.py, das dieselbe Geometrie mit Pillow zeichnet. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="o-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5eead4"/>
+      <stop offset="100%" stop-color="#0f766e"/>
+    </linearGradient>
+    <!-- Weiss = sichtbar, Schwarz = ausgestanzt. Der Behaelter ist oben offen,
+         deshalb ragt die schwarze Innenflaeche ueber seine Oberkante hinaus. -->
+    <mask id="o-mask">
+      <rect width="256" height="256" fill="black"/>
+      <polygon points="128,40 186,108 70,108" fill="white"/>
+      <rect x="112" y="96" width="32" height="80" rx="8" fill="white"/>
+      <rect x="52" y="148" width="152" height="68" rx="18" fill="white"/>
+      <rect x="74" y="126" width="108" height="68" rx="8" fill="black"/>
+    </mask>
+  </defs>
+
+  <rect width="256" height="256" rx="64" fill="url(#o-grad)"/>
+  <rect width="256" height="256" fill="white" mask="url(#o-mask)"/>
+</svg>
