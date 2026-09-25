@@ -1,42 +1,41 @@
-# Programmsymbol Orpheus
+# Orpheus program icon
 
 | | |
 |---|---|
-| Motiv | Pfeil, der aus einem geöffneten Speicher aufsteigt |
-| Farbverlauf | `#5eead4` → `#0f766e` (Türkis/Smaragd) |
-| Glyph | Weiß |
-| Grundfläche | abgerundetes Quadrat, Radius 64 von 256 |
-| Dateien | `orpheus.svg` (Quellgrafik), `orpheus.ico` (ausgeliefert) |
+| Motif | an arrow rising out of an opened store |
+| Gradient | `#5eead4` → `#0f766e` (turquoise/emerald) |
+| Glyph | white |
+| Base | rounded square, radius 64 of 256 |
+| Files | `orpheus.svg` (source graphic), `orpheus.ico` (shipped) |
 
-## Motiv
+## Motif
 
-Orpheus holt Verlorenes aus der Unterwelt zurück. Unten der geöffnete Speicher,
-daraus der Pfeil nach oben: genau der Vorgang, den das Werkzeug ausführt.
+Orpheus brings the lost back from the underworld. The opened store at the bottom,
+the arrow rising out of it: exactly what the tool does.
 
-## Warum diese Form
+## Why this shape
 
-Entscheidendes Kriterium war die Lesbarkeit bei **16 × 16 Pixeln** (Taskleiste,
-Fenstertitel, Explorer-Detailansicht). Daraus folgen zwei Entscheidungen:
+The deciding criterion was legibility at **16 × 16 pixels** (taskbar, window title,
+Explorer details view):
 
-- **Keine Leier.** Motivisch wäre sie näher an Orpheus, ihre Saiten verschwinden
-  bei 16 px aber restlos — übrig bliebe ein unlesbarer Klecks.
-- **Kein Pfeil über einer bloßen Linie.** Der erste Entwurf sah genau so aus und
-  war damit vom gängigen Upload-Symbol nicht zu unterscheiden — für ein
-  Wiederherstellungswerkzeug die falsche Aussage, weil es die Richtung
-  umdeutet. Der geöffnete Behälter dreht die Bedeutung auf „herausholen".
-- Wandstärke des Behälters 22 von 256, Pfeilschaft 32. Dünner läuft bei 16 px zu.
+- **No lyre.** It would fit the myth better, but its strings disappear completely at
+  16 px – what remains is an unreadable blob.
+- **No arrow above a plain line.** The first draft looked exactly like that and was
+  indistinguishable from the common upload symbol – the wrong message for a restore
+  tool. The opened container turns the meaning into "getting something out".
+- Container wall 22 of 256, arrow shaft 32. Thinner fills in at 16 px.
 
-## Neu erzeugen
+## Regenerating
 
 ```powershell
 py -3 -m pip install Pillow
 py -3 assets\make_icon.py
 ```
 
-Das Skript zeichnet die Geometrie mit Pillow — bewusst ohne SVG-Rasterizer,
-weil cairosvg/GTK unter Windows aufwendiger einzurichten ist als diese paar
-Formen. Es schreibt `orpheus.ico` mit den Stufen 16, 32, 48, 64, 128 und 256,
-jede einzeln aus einem vierfachen Supersample per LANCZOS gerechnet.
+The script draws the geometry with Pillow – deliberately without an SVG rasteriser,
+because setting up cairosvg/GTK on Windows is more work than these few shapes. It
+writes `orpheus.ico` with the sizes 16, 32, 48, 64, 128 and 256, each computed
+separately from a 4× supersample with LANCZOS.
 
-`orpheus.svg` zeigt dieselbe Geometrie und dient der Dokumentation. Wird das
-Skript geändert, ist die SVG mitzuziehen.
+`orpheus.svg` shows the same geometry and serves as documentation. If the script
+changes, update the SVG as well.

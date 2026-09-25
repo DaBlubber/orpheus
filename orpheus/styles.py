@@ -1,53 +1,52 @@
-"""Textfarben, die sich nach dem tatsächlichen Hintergrund richten.
+"""Text colours that follow the actual background.
 
-Tk folgt dem Windows-Dunkelmodus nicht: die Flächen bleiben hell
-(``SystemButtonFace``), auch wenn Windows dunkel eingestellt ist. Bei
-aktiviertem **Kontrastdesign** kippt derselbe Systemwert aber ins Dunkle — und
-dann wären fest verdrahtete Töne wie ``#555555`` oder ``gray`` unlesbar.
+Tk does not follow Windows dark mode: surfaces stay light (``SystemButtonFace``)
+even when Windows is set to dark. With a **contrast theme** enabled, however, the
+same system colour turns dark - and hard-coded tones such as ``#555555`` or
+``gray`` would become unreadable.
 
-Deshalb wird die Helligkeit zur Laufzeit aus der echten Systemfarbe bestimmt
-und der passende Satz gewählt. Zusätzlich ist ``gray`` ersetzt: auf
-``#f0f0f0`` kommt es nur auf rund 3:1 und liegt damit unter der
-Lesbarkeitsgrenze.
+The brightness is therefore determined at runtime from the real system colour
+and the matching set is chosen. ``gray`` is replaced as well: on ``#f0f0f0`` it
+only reaches about 3:1, below the readability threshold.
 """
 
 from __future__ import annotations
 
 import tkinter as tk
 
-# Töne für helle Flächen (Normalfall) …
+# Tones for light surfaces (the normal case) ...
 _ON_LIGHT = {
-    "hint": "#5a6470",       # Nebentext, ersetzt "gray" (3.0:1 -> 5.5:1)
-    "accent": "#1f4c94",     # hervorgehobener Pfad
-    "muted": "#4a4a4a",      # zweitrangige Pfadangabe
+    "hint": "#5a6470",       # secondary text, replaces "gray" (3.0:1 -> 5.5:1)
+    "accent": "#1f4c94",     # highlighted path
+    "muted": "#4a4a4a",      # secondary path
 }
-# … und für dunkle, wie sie das Windows-Kontrastdesign liefert.
+# ... and for dark ones, as produced by Windows contrast themes.
 _ON_DARK = {
     "hint": "#b9c2cc",
     "accent": "#8ab4ff",
     "muted": "#cfcfcf",
 }
 
-# Der Vorschautext bringt seinen eigenen dunklen Hintergrund mit und ist
-# deshalb von der Umschaltung unabhängig.
+# The preview text brings its own dark background and is therefore
+# independent of the switch.
 PREVIEW_BACKGROUND = "#1e1e1e"
 PREVIEW_FOREGROUND = "#d4d4d4"
 PREVIEW_CARET = "#ffffff"
 
 
 def _is_light(widget: tk.Misc) -> bool:
-    """Ist der Systemhintergrund hell? Ermittelt aus der echten Farbe."""
+    """Is the system background light? Determined from the real colour."""
     try:
         red, green, blue = widget.winfo_rgb("SystemButtonFace")
     except tk.TclError:
-        return True  # Im Zweifel hell - das ist der Normalfall unter Windows.
-    # winfo_rgb liefert 16 Bit je Kanal.
+        return True  # When in doubt: light - the normal case on Windows.
+    # winfo_rgb returns 16 bits per channel.
     luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 65535
     return luminance >= 0.5
 
 
 def palette(widget: tk.Misc) -> dict[str, str]:
-    """Textfarben passend zum aktuellen Systemhintergrund."""
+    """Text colours matching the current system background."""
     return dict(_ON_LIGHT if _is_light(widget) else _ON_DARK)
 
 

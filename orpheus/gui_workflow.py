@@ -1,4 +1,4 @@
-"""Tk-Controller-Mixin für Staging, Sichtprüfung und explizite Übernahme."""
+"""Tk controller mixin for staging, inspection and the explicit apply step."""
 
 from __future__ import annotations
 
@@ -26,27 +26,27 @@ class RestoreWorkflowMixin:
             return
         self._staging_scan_generation += 1
         if not self._current_snapshot_id:
-            messagebox.showwarning("Snapshot fehlt", "Wählen Sie zuerst einen Snapshot aus.", parent=self)
+            messagebox.showwarning("Snapshot missing", "Select a snapshot first.", parent=self)
             return
         password = self.view.password_var.get()
         if not password:
-            messagebox.showwarning("Passwort fehlt", "Geben Sie das Repository-Passwort ein.", parent=self)
+            messagebox.showwarning("Password missing", "Enter the repository password.", parent=self)
             return
         include = self._selected_include
-        scope = include or "gesamter Snapshot"
+        scope = include or "entire snapshot"
         if not messagebox.askyesno(
-            "Staging-Wiederherstellung bestätigen",
-            f"Auswahl: {scope}\n\nOrpheus stellt ausschließlich in einen neuen Staging-Unterordner wieder her. "
-            "Originaldaten werden nicht verändert.\n\nFortfahren?",
+            "Confirm staging restore",
+            f"Selection: {scope}\n\nOrpheus restores only into a new staging subfolder. "
+            "The original data is not changed.\n\nContinue?",
             parent=self,
         ):
             return
         staging_root = self.view.staging_root_var.get().strip() or cfg.default_staging_dir()
         if is_remote_windows_path(staging_root) and not messagebox.askyesno(
-            "Staging auf Netzwerkfreigabe?",
-            "Der gewählte Staging-Bereich ist ein UNC-Pfad. Seine Zugriffsrechte werden von der Freigabe geerbt und "
-            "können breiter sein als bei der empfohlenen lokalen Vorgabe unter LOCALAPPDATA.\n\n"
-            "Nur fortfahren, wenn die Freigabe ausschließlich für berechtigte Benutzer zugänglich ist.",
+            "Staging on a network share?",
+            "The chosen staging area is a UNC path. Its permissions are inherited from the share and "
+            "may be broader than those of the recommended local default under LOCALAPPDATA.\n\n"
+            "Only continue if the share is accessible to authorised users only.",
             parent=self,
         ):
             return
@@ -90,27 +90,27 @@ class RestoreWorkflowMixin:
             session, warnings = value
             self._active_staging = session
             self.view.staging_path_var.set(session.content_path)
-            self.view.status_var.set("Staging-Wiederherstellung abgeschlossen. Prüfen Sie jetzt den Inhalt im Explorer.")
+            self.view.status_var.set("Staging restore finished. Now inspect the content in Explorer.")
             self._refresh_action_states()
             message = (
-                f"Die Daten liegen ausschließlich im Staging-Ordner:\n\n{session.content_path}\n\n"
-                "Prüfen Sie den Inhalt. Erst der separate Schritt 3 übernimmt Dateien auf ein Ziel."
+                f"The data is only in the staging folder:\n\n{session.content_path}\n\n"
+                "Inspect the content. Only the separate step 3 applies files to a target."
             )
             if warnings:
-                message += "\n\nRestic-Hinweise:\n" + "\n".join(warnings[:8])
-                messagebox.showwarning("Staging abgeschlossen – Hinweise beachten", message, parent=self)
+                message += "\n\nrestic warnings:\n" + "\n".join(warnings[:8])
+                messagebox.showwarning("Staging finished - note the warnings", message, parent=self)
             else:
-                messagebox.showinfo("Staging abgeschlossen", message, parent=self)
+                messagebox.showinfo("Staging finished", message, parent=self)
 
         def error(exc):
             if "session" in holder:
                 self._active_staging = holder["session"]
                 self.view.staging_path_var.set(
-                    holder["session"].content_path + " (unvollständig – nur prüfen oder verwerfen)"
+                    holder["session"].content_path + " (incomplete - inspect or discard only)"
                 )
             self._show_error(exc)
 
-        self._start_task("Staging-Restore", "Bereite frischen Staging-Ordner vor …", operation, success, error)
+        self._start_task("Staging restore", "Preparing a fresh staging folder ...", operation, success, error)
 
     def _open_staging(self):
         if not self._active_staging:
@@ -125,28 +125,28 @@ class RestoreWorkflowMixin:
             return
         session = self._active_staging
         if not messagebox.askyesno(
-            "Staging verwerfen",
-            f"Nur dieser markierte Staging-Lauf wird gelöscht:\n\n{session.path}\n\n"
-            "Bereits übernommene Zieldateien werden nicht verändert. Fortfahren?",
+            "Discard staging",
+            f"Only this marked staging run is deleted:\n\n{session.path}\n\n"
+            "Target files that were already applied are not changed. Continue?",
             parent=self,
         ):
             return
 
         def operation(_cancel, progress):
-            progress(None, "Entferne markierten Staging-Lauf …")
+            progress(None, "Removing the marked staging run ...")
             discard_staging(session)
             return None
 
         def success(_value):
             self._active_staging = None
-            self.view.staging_path_var.set("Noch kein geprüfter Staging-Inhalt")
-            self.view.status_var.set("Staging-Lauf wurde verworfen.")
+            self.view.staging_path_var.set("No checked staging content yet")
+            self.view.status_var.set("The staging run was discarded.")
             self.after_idle(self._recover_latest_staging)
 
-        self._start_task("Staging-verwerfen", "Verwerfe Staging …", operation, success)
+        self._start_task("Discard staging", "Discarding staging ...", operation, success)
 
     def _pick_destination(self):
-        path = filedialog.askdirectory(title="Zielordner für die explizite Übernahme wählen", parent=self)
+        path = filedialog.askdirectory(title="Choose the target folder for the explicit apply step", parent=self)
         if path:
             self.view.destination_var.set(path)
 
@@ -155,58 +155,58 @@ class RestoreWorkflowMixin:
             return
         destination = self.view.destination_var.get().strip()
         if not destination:
-            messagebox.showwarning("Ziel fehlt", "Wählen Sie den Zielordner für die Übernahme aus.", parent=self)
+            messagebox.showwarning("Target missing", "Choose the target folder to apply to.", parent=self)
             self.view.destination_entry.focus_set()
             return
         session = self._active_staging
 
         def operation(_cancel, progress):
-            progress(None, "Inventarisiere Staging-Inhalt und prüfe Zielkollisionen …")
+            progress(None, "Inventorying the staging content and checking for target collisions ...")
             return build_transfer_plan(session.content_path, destination)
 
         def success(plan):
             summary = (
-                f"Ziel: {plan.destination_dir}\n"
-                f"Dateien/Links: {plan.total_files}\n"
-                f"Datenmenge: {format_bytes(plan.total_bytes)}\n"
-                f"Kollisionen: {len(plan.collisions)}"
+                f"Target: {plan.destination_dir}\n"
+                f"Files/links: {plan.total_files}\n"
+                f"Data: {format_bytes(plan.total_bytes)}\n"
+                f"Collisions: {len(plan.collisions)}"
             )
             overwrite = False
             if plan.collisions:
                 examples = "\n".join(f"• {path}" for path in plan.collisions[:10])
                 if len(plan.collisions) > 10:
-                    examples += f"\n• … und {len(plan.collisions) - 10} weitere"
+                    examples += f"\n• ... and {len(plan.collisions) - 10} more"
                 overwrite = messagebox.askyesno(
-                    "Bestehende Ziele ausdrücklich überschreiben?",
-                    summary + "\n\nDiese vorhandenen Ziele würden ersetzt:\n" + examples +
-                    "\n\nNur vollständig kopierte Dateien werden atomar ersetzt. Jetzt ausdrücklich überschreiben?",
+                    "Explicitly overwrite existing targets?",
+                    summary + "\n\nThese existing targets would be replaced:\n" + examples +
+                    "\n\nOnly completely copied files are replaced atomically. Overwrite now?",
                     parent=self,
                 )
                 if not overwrite:
-                    self.view.status_var.set("Übernahme wegen Zielkollisionen nicht gestartet; am Ziel wurde nichts verändert.")
+                    self.view.status_var.set("Apply not started because of target collisions; nothing was changed at the target.")
                     return
             elif not messagebox.askyesno(
-                "Übernahme endgültig bestätigen",
-                summary + "\n\nDie Sichtprüfung ist abgeschlossen. Dateien jetzt auf dieses Ziel übernehmen?",
+                "Confirm apply",
+                summary + "\n\nThe inspection is done. Apply the files to this target now?",
                 parent=self,
             ):
                 return
             self.after_idle(lambda: self._apply_plan(plan, overwrite))
 
-        self._start_task("Übernahme-planen", "Prüfe Staging und Ziel …", operation, success)
+        self._start_task("Plan apply", "Checking staging and target ...", operation, success)
 
     def _apply_plan(self, plan, overwrite: bool):
         def operation(cancel, progress):
             return apply_transfer_plan(plan, overwrite=overwrite, cancel_event=cancel, progress=progress)
 
         def success(result):
-            self.view.status_var.set("Übernahme abgeschlossen. Der Staging-Lauf bleibt für Ihre Kontrolle erhalten.")
+            self.view.status_var.set("Apply finished. The staging run is kept for your review.")
             messagebox.showinfo(
-                "Übernahme abgeschlossen",
-                f"{result.files_copied} Datei(en)/Link(s) wurden vollständig übernommen.\n"
-                f"{result.overwritten} vorhandene Ziele wurden nach Ihrer Freigabe ersetzt.\n\n"
-                "Der Staging-Ordner wurde bewusst nicht automatisch gelöscht. Sie können ihn separat verwerfen.",
+                "Apply finished",
+                f"{result.files_copied} file(s)/link(s) were applied completely.\n"
+                f"{result.overwritten} existing targets were replaced after your approval.\n\n"
+                "The staging folder was deliberately not deleted automatically. You can discard it separately.",
                 parent=self,
             )
 
-        self._start_task("Übernahme", "Übernehme geprüfte Dateien …", operation, success)
+        self._start_task("Apply", "Applying the checked files ...", operation, success)

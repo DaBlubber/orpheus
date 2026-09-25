@@ -1,4 +1,4 @@
-"""Staging- und Übernahmelogik ohne GUI- oder Restic-Abhängigkeit."""
+"""Staging and apply logic without GUI or restic dependencies."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ class StagingError(RuntimeError):
 
 class CollisionError(StagingError):
     def __init__(self, collisions: tuple[str, ...]):
-        super().__init__(f"{len(collisions)} Zielkonflikt(e) wurden gefunden.")
+        super().__init__(f"{len(collisions)} target conflict(s) found.")
         self.collisions = collisions
 
 
@@ -76,17 +76,17 @@ def create_staging_session(
     include_path: str,
     repository: str,
 ) -> StagingSession:
-    """Erstellt einen garantiert frischen Laufordner mit Besitzmarker."""
+    """Creates a guaranteed fresh run folder with an ownership marker."""
 
     if not (staging_root or "").strip():
-        raise StagingError("Der Staging-Basispfad ist leer.")
+        raise StagingError("The staging base path is empty.")
     root = os.path.abspath(os.path.expandvars(staging_root))
     try:
         os.makedirs(windows_extended_path(root), exist_ok=True)
         free = shutil.disk_usage(windows_extended_path(root)).free
         if free < MINIMUM_STAGING_FREE:
             raise StagingError(
-                "Im Staging-Bereich sind weniger als 64 MB frei. Wählen Sie einen anderen Ordner oder schaffen Sie Platz."
+                "Less than 64 MB are free in the staging area. Choose a different folder or free up space."
             )
         descriptor, probe = tempfile.mkstemp(prefix=".orpheus-write-test-", dir=windows_extended_path(root))
         os.close(descriptor)
@@ -95,7 +95,7 @@ def create_staging_session(
         raise
     except OSError as exc:
         raise StagingError(
-            f"Der Staging-Bereich ist nicht beschreibbar: {root}. Prüfen Sie Pfad, freien Speicher und Berechtigungen. ({exc})"
+            f"The staging area is not writable: {root}. Check the path, free space and permissions. ({exc})"
         ) from exc
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     dirname = f"{timestamp}_{safe_component(snapshot_id[:12], 'snapshot')}_{secrets.token_hex(4)}"
@@ -109,7 +109,7 @@ def create_staging_session(
     except OSError as exc:
         if target_created:
             shutil.rmtree(windows_extended_path(target), ignore_errors=True)
-        raise StagingError(f"Der frische Staging-Ordner konnte nicht angelegt werden: {exc}") from exc
+        raise StagingError(f"The fresh staging folder could not be created: {exc}") from exc
     session = StagingSession(
         path=target,
         root=root,
@@ -136,7 +136,7 @@ def update_staging_status(session: StagingSession, status: str) -> StagingSessio
 def load_staging_session(path: str, expected_root: str | None = None) -> StagingSession:
     absolute = os.path.abspath(path)
     if expected_root and (absolute == os.path.abspath(expected_root) or not is_within(absolute, expected_root)):
-        raise StagingError("Der Ordner liegt außerhalb des konfigurierten Staging-Bereichs.")
+        raise StagingError("The folder lies outside the configured staging area.")
     marker = os.path.join(absolute, MARKER_NAME)
     try:
         with open(windows_extended_path(marker), "r", encoding="utf-8") as handle:
@@ -144,17 +144,17 @@ def load_staging_session(path: str, expected_root: str | None = None) -> Staging
         session = StagingSession(**{field: data[field] for field in StagingSession.__dataclass_fields__})
     except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise StagingError(
-            "Der Ordner besitzt keinen gültigen Orpheus-Staging-Marker und wird aus Sicherheitsgründen nicht verwaltet."
+            "The folder has no valid Orpheus staging marker and is not managed, for safety reasons."
         ) from exc
     if os.path.abspath(session.path) != absolute:
-        raise StagingError("Der Staging-Marker gehört zu einem anderen Ordner.")
+        raise StagingError("The staging marker belongs to a different folder.")
     if not is_within(session.content_path, session.path) or not os.path.isdir(windows_extended_path(session.content_path)):
-        raise StagingError("Der im Marker festgehaltene Inhaltsordner ist ungültig oder fehlt.")
+        raise StagingError("The content folder recorded in the marker is invalid or missing.")
     return session
 
 
 def discover_staging_sessions(staging_root: str) -> list[StagingSession]:
-    """Findet bestehende markierte Läufe, ohne fremde Ordner anzutasten."""
+    """Finds existing marked runs without touching any other folders."""
 
     root = os.path.abspath(os.path.expandvars(staging_root))
     if not os.path.isdir(windows_extended_path(root)):
@@ -170,40 +170,40 @@ def discover_staging_sessions(staging_root: str) -> list[StagingSession]:
                 except StagingError:
                     continue
     except OSError as exc:
-        raise StagingError(f"Vorhandene Staging-Läufe konnten nicht gelesen werden: {exc}") from exc
+        raise StagingError(f"Existing staging runs could not be read: {exc}") from exc
     return sorted(sessions, key=lambda session: session.created_at, reverse=True)
 
 
 def discard_staging(session: StagingSession):
-    """Löscht nur einen markierten Laufordner unterhalb seines festgehaltenen Roots."""
+    """Deletes only a marked run folder below its recorded root."""
 
     verified = load_staging_session(session.path, session.root)
     if os.path.abspath(verified.path) == os.path.abspath(verified.root):
-        raise StagingError("Der Staging-Basisordner selbst wird niemals gelöscht.")
+        raise StagingError("The staging base folder itself is never deleted.")
     try:
         shutil.rmtree(windows_extended_path(verified.path))
     except OSError as exc:
         raise StagingError(
-            f"Der Staging-Ordner konnte nicht vollständig entfernt werden: {exc}. Schließen Sie geöffnete Dateien und versuchen Sie es erneut."
+            f"The staging folder could not be removed completely: {exc}. Close any open files and try again."
         ) from exc
 
 
 def build_transfer_plan(staged_dir: str, destination_dir: str) -> TransferPlan:
-    """Inventarisiert den geprüften Staging-Inhalt und alle Zielkollisionen."""
+    """Inventories the checked staging content and all target collisions."""
 
     staged = os.path.abspath(staged_dir)
     destination = os.path.abspath(os.path.expandvars(destination_dir))
     if not os.path.isdir(windows_extended_path(staged)):
-        raise StagingError(f"Der Staging-Ordner wurde nicht gefunden: {staged}")
+        raise StagingError(f"The staging folder was not found: {staged}")
     if not destination_dir.strip():
-        raise StagingError("Der Zielordner ist leer.")
+        raise StagingError("The target folder is empty.")
     if is_within(destination, staged) or is_within(staged, destination):
-        raise StagingError("Staging- und Zielordner dürfen sich nicht überlappen.")
+        raise StagingError("Staging and target folder must not overlap.")
     extended_destination = windows_extended_path(destination)
     if os.path.lexists(extended_destination) and (
         _is_link_or_reparse(extended_destination) or not os.path.isdir(extended_destination)
     ):
-        raise StagingError("Der Zielpfad muss ein echter Ordner sein und darf kein Link sein.")
+        raise StagingError("The target path must be a real folder, not a link.")
     items: list[TransferItem] = []
     collisions: list[str] = []
     total_files = 0
@@ -244,7 +244,7 @@ def build_transfer_plan(staged_dir: str, destination_dir: str) -> TransferPlan:
                 try:
                     size = os.path.getsize(source)
                 except OSError as exc:
-                    raise StagingError(f"Die Größe von '{relative}' konnte nicht gelesen werden: {exc}") from exc
+                    raise StagingError(f"The size of '{relative}' could not be read: {exc}") from exc
             items.append(TransferItem(relative, source, target, kind, size))
             total_files += 1
             total_bytes += size
@@ -263,17 +263,17 @@ def apply_transfer_plan(
     cancel_event=None,
     progress: CopyProgress | None = None,
 ) -> TransferResult:
-    """Übernimmt Dateien atomar; vorhandene Ziele nur nach expliziter Freigabe."""
+    """Applies files atomically; existing targets only after explicit approval."""
 
     if plan.collisions and not overwrite:
         raise CollisionError(plan.collisions)
     if is_within(plan.destination_dir, plan.staged_dir) or is_within(plan.staged_dir, plan.destination_dir):
-        raise StagingError("Staging- und Zielordner dürfen sich nicht überlappen.")
+        raise StagingError("Staging and target folder must not overlap.")
     _ensure_destination_space(plan)
     try:
         os.makedirs(windows_extended_path(plan.destination_dir), exist_ok=True)
     except OSError as exc:
-        raise StagingError(f"Der Zielordner kann nicht angelegt werden: {exc}") from exc
+        raise StagingError(f"The target folder cannot be created: {exc}") from exc
     bytes_copied = 0
     files_copied = 0
     overwritten = 0
@@ -321,12 +321,12 @@ def apply_transfer_plan(
         overwritten += int(existed)
         if progress:
             fraction = (bytes_copied / plan.total_bytes) if plan.total_bytes else (files_copied / max(plan.total_files, 1))
-            progress(fraction, f"Übernehme {files_copied} von {plan.total_files} Dateien")
+            progress(fraction, f"Applying {files_copied} of {plan.total_files} files")
     for directory in reversed(directories):
         try:
             shutil.copystat(directory.source_path, windows_extended_path(directory.destination_path), follow_symlinks=False)
         except OSError:
-            pass  # Inhaltsübernahme ist wichtiger als nicht portable Verzeichnismetadaten.
+            pass  # Applying the content matters more than non-portable directory metadata.
     return TransferResult(files_copied, bytes_copied, overwritten)
 
 
@@ -349,7 +349,7 @@ def _copy_file(
             target_handle.write(chunk)
             copied += len(chunk)
             if progress:
-                progress(copied / total if total else None, f"Kopiere {relative}")
+                progress(copied / total if total else None, f"Copying {relative}")
         target_handle.flush()
         os.fsync(target_handle.fileno())
     return copied
@@ -365,16 +365,16 @@ def _ensure_destination_space(plan: TransferPlan):
     try:
         free = shutil.disk_usage(windows_extended_path(probe)).free
     except OSError as exc:
-        raise StagingError(f"Der freie Speicher am Ziel konnte nicht ermittelt werden: {exc}") from exc
+        raise StagingError(f"The free space at the target could not be determined: {exc}") from exc
     if free < plan.total_bytes:
         raise StagingError(
-            f"Am Ziel fehlen mindestens {format_bytes(plan.total_bytes - free)} freier Speicher. Wählen Sie ein anderes Ziel oder schaffen Sie Platz."
+            f"The target lacks at least {format_bytes(plan.total_bytes - free)} of free space. Choose a different target or free up space."
         )
 
 
 def _check_cancel(cancel_event):
     if cancel_event is not None and cancel_event.is_set():
-        raise OperationCancelled("Die Übernahme wurde abgebrochen. Bereits vollständig übernommene Dateien bleiben erhalten.")
+        raise OperationCancelled("Applying was cancelled. Files that were already applied completely are kept.")
 
 
 def _is_link_or_reparse(path: str) -> bool:
@@ -399,7 +399,7 @@ def _write_marker(session: StagingSession):
             os.fsync(handle.fileno())
         os.replace(windows_extended_path(temporary), windows_extended_path(marker))
     except OSError as exc:
-        raise StagingError(f"Der Staging-Marker konnte nicht geschrieben werden: {exc}") from exc
+        raise StagingError(f"The staging marker could not be written: {exc}") from exc
 
 
 def format_bytes(size: int) -> str:

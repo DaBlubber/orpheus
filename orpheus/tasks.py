@@ -1,4 +1,4 @@
-"""Kleine Tk-kompatible Worker-Verwaltung für exklusive lange Operationen."""
+"""Small Tk-compatible worker management for exclusive long-running operations."""
 
 from __future__ import annotations
 

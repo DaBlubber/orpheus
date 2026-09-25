@@ -15,7 +15,7 @@ from orpheus.paths import (
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
-        (r"C:\Benutzer\Jörg\Datei mit Leerzeichen.txt", "/C:/Benutzer/Jörg/Datei mit Leerzeichen.txt"),
+        (r"C:\Users\Jörg\File with spaces.txt", "/C:/Users/Jörg/File with spaces.txt"),
         ("/etc//hosts", "/etc/hosts"),
         ("foo/bar/", "/foo/bar"),
         ("", ""),

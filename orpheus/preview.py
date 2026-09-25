@@ -1,4 +1,4 @@
-"""Reine Vorschauentscheidungen, unabhängig von Tkinter und Restic."""
+"""Pure preview decisions, independent of Tkinter and restic."""
 
 from __future__ import annotations
 

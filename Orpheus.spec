@@ -6,8 +6,8 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[('bin/restic.exe', 'bin')],
-    # Programmsymbol mitliefern: EXE(icon=...) setzt nur das Datei-Symbol,
-    # das Fenstersymbol zur Laufzeit braucht die Datei im Bundle.
+    # Ship the program icon: EXE(icon=...) only sets the file icon,
+    # the window icon at runtime needs the file inside the bundle.
     datas=[('assets/orpheus.ico', 'assets')],
     hiddenimports=[],
     hookspath=[],

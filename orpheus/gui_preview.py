@@ -1,4 +1,4 @@
-"""Tk-Controller-Mixin für die bestehende Datei- und Bildvorschau."""
+"""Tk controller mixin for the file and image preview."""
 
 from __future__ import annotations
 
@@ -31,8 +31,8 @@ class PreviewControllerMixin:
             return
         kind = preview_kind(path)
         limit = 5 * 1024 * 1024 if kind == "image" else 65536
-        self._show_preview_placeholder("Lade Vorschau …")
-        self.view.status_var.set(f"Lade Vorschau: {path}")
+        self._show_preview_placeholder("Loading preview ...")
+        self.view.status_var.set(f"Loading preview: {path}")
         repo, password, snapshot = self._current_repo, self._current_password, self._current_snapshot_id
         cancel_event = self._preview_cancel
 
@@ -46,14 +46,14 @@ class PreviewControllerMixin:
                 return
             self.after(0, lambda: self._display_preview(kind, data, limit, generation))
 
-        threading.Thread(target=worker, name="Orpheus-Vorschau", daemon=True).start()
+        threading.Thread(target=worker, name="Orpheus-preview", daemon=True).start()
 
     def _preview_error(self, error: Exception, generation: int):
         if generation != self._preview_generation:
             return
         message = error.user_message() if isinstance(error, rc.ResticError) else str(error)
-        self._show_preview_placeholder(f"Vorschau nicht verfügbar\n\n{message}")
-        self.view.status_var.set("Vorschau konnte nicht geladen werden.")
+        self._show_preview_placeholder(f"Preview not available\n\n{message}")
+        self.view.status_var.set("The preview could not be loaded.")
 
     def _display_preview(self, kind: str, data: bytes, limit: int, generation: int):
         if generation != self._preview_generation:
@@ -62,7 +62,7 @@ class PreviewControllerMixin:
             self._show_preview_text(decode_text(data), len(data) >= limit)
         else:
             self._show_preview_image(data, len(data) >= limit)
-        self.view.status_var.set("Vorschau geladen.")
+        self.view.status_var.set("Preview loaded.")
 
     def _hide_preview_widgets(self):
         for widget in (
@@ -85,7 +85,7 @@ class PreviewControllerMixin:
         self.view.preview_text.delete("1.0", "end")
         self.view.preview_text.insert("end", content)
         if truncated:
-            self.view.preview_text.insert("end", "\n\n… (Vorschau auf 64 KB begrenzt)")
+            self.view.preview_text.insert("end", "\n\n... (preview limited to 64 KB)")
         self.view.preview_text.configure(state="disabled")
         self.view.preview_text.grid(row=0, column=0, sticky="nsew")
         self.view.preview_text_vscroll.grid(row=0, column=1, sticky="ns")
@@ -101,11 +101,11 @@ class PreviewControllerMixin:
             image.thumbnail((width, height), Image.LANCZOS)
             self._preview_image = ImageTk.PhotoImage(image)
         except ImportError:
-            self._show_preview_placeholder("Bildvorschau benötigt optional Pillow.\n`pip install Pillow`")
+            self._show_preview_placeholder("The image preview needs the optional Pillow package.\n`pip install Pillow`")
             return
         except Exception as exc:
-            suffix = " Die Datei ist größer als das 5-MB-Vorschaulimit." if truncated else ""
-            self._show_preview_placeholder(f"Bildvorschau konnte nicht gelesen werden.{suffix}\n\n{exc}")
+            suffix = " The file is larger than the 5 MB preview limit." if truncated else ""
+            self._show_preview_placeholder(f"The image preview could not be read.{suffix}\n\n{exc}")
             return
         self._hide_preview_widgets()
         self.view.preview_image_label.configure(image=self._preview_image)
@@ -114,11 +114,11 @@ class PreviewControllerMixin:
     def _show_preview_meta(self, node: dict):
         self._show_preview_placeholder(
             "\n".join((
-                f"Typ: {node.get('type', '?')}",
-                f"Größe: {format_bytes(int(node.get('size') or 0))}",
-                f"Geändert: {str(node.get('mtime') or '')[:19].replace('T', ' ')}",
-                f"Modus: {node.get('mode', '')}",
+                f"Type: {node.get('type', '?')}",
+                f"Size: {format_bytes(int(node.get('size') or 0))}",
+                f"Modified: {str(node.get('mtime') or '')[:19].replace('T', ' ')}",
+                f"Mode: {node.get('mode', '')}",
                 "",
-                "Für diesen Dateityp wird bewusst nur die Metadatenansicht verwendet.",
+                "For this file type only the metadata view is used, on purpose.",
             ))
         )

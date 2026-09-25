@@ -56,18 +56,18 @@ def test_discard_removes_only_session_and_keeps_root(tmp_path):
 
 def test_transfer_plan_copies_content_but_not_marker(tmp_path):
     session = make_session(tmp_path)
-    source = os.path.join(session.content_path, "Ordner")
+    source = os.path.join(session.content_path, "Folder")
     os.makedirs(source)
     with open(os.path.join(source, "unicode-ä.txt"), "w", encoding="utf-8") as handle:
-        handle.write("Inhalt")
-    destination = tmp_path / "ziel"
+        handle.write("Content")
+    destination = tmp_path / "target"
     plan = build_transfer_plan(session.content_path, str(destination))
     assert plan.total_files == 1
-    assert plan.total_bytes == len("Inhalt".encode("utf-8"))
+    assert plan.total_bytes == len("Content".encode("utf-8"))
     assert not any(item.relative_path == MARKER_NAME for item in plan.items)
     result = apply_transfer_plan(plan)
     assert result.files_copied == 1
-    assert (destination / "Ordner" / "unicode-ä.txt").read_text(encoding="utf-8") == "Inhalt"
+    assert (destination / "Folder" / "unicode-ä.txt").read_text(encoding="utf-8") == "Content"
 
 
 def test_collisions_require_explicit_overwrite(tmp_path):
@@ -75,7 +75,7 @@ def test_collisions_require_explicit_overwrite(tmp_path):
     staged_file = os.path.join(session.content_path, "same.txt")
     with open(staged_file, "w", encoding="utf-8") as handle:
         handle.write("neu")
-    destination = tmp_path / "ziel"
+    destination = tmp_path / "target"
     destination.mkdir()
     target = destination / "same.txt"
     target.write_text("alt", encoding="utf-8")
@@ -94,7 +94,7 @@ def test_pre_cancelled_transfer_does_not_copy_file(tmp_path):
     session = make_session(tmp_path)
     with open(os.path.join(session.content_path, "file.bin"), "wb") as handle:
         handle.write(b"x" * 16)
-    destination = tmp_path / "ziel"
+    destination = tmp_path / "target"
     plan = build_transfer_plan(session.content_path, str(destination))
     cancel = threading.Event()
     cancel.set()

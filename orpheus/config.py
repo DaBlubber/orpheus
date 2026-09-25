@@ -1,4 +1,4 @@
-"""Persistente Orpheus-Konfiguration und verlustfreie Altpfad-Migration."""
+"""Persistent Orpheus configuration and lossless migration from the legacy folder."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ LEGACY_APP_DIRNAME = "ResticRestoreTool"
 
 
 class ConfigError(RuntimeError):
-    """Konfiguration oder Secret-Speicher konnte nicht sicher verarbeitet werden."""
+    """Configuration or secret store could not be processed safely."""
 
 
 def default_staging_dir(appdata: str | None = None) -> str:
@@ -33,10 +33,10 @@ DEFAULT_CONFIG = {
 
 
 class ConfigStore:
-    """Testbarer Zugriff auf Config und DPAPI-Blob.
+    """Testable access to the config and the DPAPI blob.
 
-    Bei der Migration werden nur fehlende Ziele kopiert. Der alte Ordner bleibt
-    vollständig erhalten; insbesondere `secrets.bin` wird bytegenau kopiert.
+    Migration only copies missing targets. The legacy folder is left completely
+    intact; `secrets.bin` in particular is copied byte for byte.
     """
 
     def __init__(self, appdata: str | None = None, *, dpapi_module=dpapi):
@@ -65,8 +65,8 @@ class ConfigStore:
                     copied.append(str(relative))
                 except OSError as exc:
                     self.last_warning = (
-                        f"Die alte Datei '{relative}' konnte nicht nach Orpheus kopiert werden. "
-                        f"Die Quelle bleibt erhalten. ({exc})"
+                        f"The legacy file '{relative}' could not be copied to Orpheus. "
+                        f"The source is left untouched. ({exc})"
                     )
         return copied
 
@@ -78,11 +78,11 @@ class ConfigStore:
             with self.config_path.open("r", encoding="utf-8") as handle:
                 data = json.load(handle)
             if not isinstance(data, dict):
-                raise ValueError("Wurzelelement ist kein Objekt")
+                raise ValueError("root element is not an object")
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             self.last_warning = (
-                "Die Konfiguration konnte nicht gelesen werden. Orpheus verwendet "
-                f"Standardwerte; die vorhandene Datei bleibt unverändert. ({exc})"
+                "The configuration could not be read. Orpheus uses default values; "
+                f"the existing file is left unchanged. ({exc})"
             )
             return dict(DEFAULT_CONFIG)
         merged = dict(DEFAULT_CONFIG)
@@ -102,13 +102,13 @@ class ConfigStore:
             plaintext = self.dpapi.unprotect(self.secrets_path.read_bytes())
             values = json.loads(plaintext)
             if not isinstance(values, dict):
-                raise ValueError("Secret-Speicher enthält kein Objekt")
+                raise ValueError("secret store does not contain an object")
             return {str(key): str(value) for key, value in values.items()}
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             message = (
-                "Die gespeicherten Passwörter können unter diesem Windows-Benutzer "
-                "nicht entschlüsselt werden. Bitte Passwort erneut eingeben. Die alte "
-                f"Datei wurde nicht verändert. ({exc})"
+                "The stored passwords cannot be decrypted by this Windows user. "
+                "Please enter the password again. The old file was not changed. "
+                f"({exc})"
             )
             self.last_warning = message
             if strict:
@@ -126,8 +126,8 @@ class ConfigStore:
             self._atomic_write(self.secrets_path, protected)
         except OSError as exc:
             raise ConfigError(
-                "Das Passwort konnte nicht mit Windows DPAPI gespeichert werden. "
-                "Es wurde keine unverschlüsselte Ersatzdatei angelegt."
+                "The password could not be stored with Windows DPAPI. "
+                "No unencrypted fallback file was created."
             ) from exc
 
     @staticmethod

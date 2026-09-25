@@ -11,14 +11,13 @@ Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayIcon={app}\Orpheus.exe
-; Symbol des Installers selbst. Die Verknuepfungen unten erben ihr Symbol aus
-; der EXE, in die PyInstaller dieselbe .ico einbettet.
+; Icon of the installer itself. The shortcuts below inherit their icon from
+; the EXE, into which PyInstaller embeds the same .ico.
 SetupIconFile=..\assets\orpheus.ico
 PrivilegesRequired=lowest
-; Läuft ohne Administratorrechte und installiert pro Benutzer.
+; Runs without administrator rights and installs per user.
 
 [Languages]
-Name: "german"; MessagesFile: "compiler:Languages\German.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
@@ -29,7 +28,7 @@ Name: "{group}\Orpheus"; Filename: "{app}\Orpheus.exe"
 Name: "{autodesktop}\Orpheus"; Filename: "{app}\Orpheus.exe"; Tasks: desktopicon
 
 [Tasks]
-Name: "desktopicon"; Description: "Desktop-Verknüpfung erstellen"; GroupDescription: "Zusätzliche Optionen:"
+Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional options:"
 
 [Run]
-Filename: "{app}\Orpheus.exe"; Description: "Orpheus starten"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\Orpheus.exe"; Description: "Start Orpheus"; Flags: nowait postinstall skipifsilent

@@ -1,4 +1,4 @@
-"""Reine Pfadhelfer für Restic-Pfade und lokale Windows-Dateioperationen."""
+"""Pure path helpers for restic paths and local Windows file operations."""
 
 from __future__ import annotations
 
@@ -9,63 +9,62 @@ import ctypes
 
 
 class PathValidationError(ValueError):
-    """Ein vom Benutzer oder von Restic gelieferter Pfad ist nicht sicher nutzbar."""
+    """A path supplied by the user or by restic cannot be used safely."""
 
 
 def normalize_snapshot_path(path: str, *, allow_empty: bool = True) -> str:
-    """Normalisiert einen Snapshot-Pfad in Restics vorwärtsgerichtete Pfadform.
+    """Normalises a snapshot path into restic's forward-slash form.
 
-    Snapshot-Pfade sind keine lokalen Windows-Pfade. Relative Segmente werden
-    nicht aufgelöst, sondern abgelehnt, damit ein Filter nie unbemerkt seinen
-    Bedeutungsbereich ändert.
+    Snapshot paths are not local Windows paths. Relative segments are not
+    resolved but rejected, so a filter never silently changes its scope.
     """
 
     if path is None:
-        raise PathValidationError("Der Snapshot-Pfad fehlt.")
+        raise PathValidationError("The snapshot path is missing.")
     value = str(path).strip()
     if not value:
         if allow_empty:
             return ""
-        raise PathValidationError("Der Snapshot-Pfad ist leer.")
+        raise PathValidationError("The snapshot path is empty.")
     if "\x00" in value or "\r" in value or "\n" in value:
-        raise PathValidationError("Der Snapshot-Pfad enthält unzulässige Steuerzeichen.")
+        raise PathValidationError("The snapshot path contains invalid control characters.")
     value = value.replace("\\", "/")
     parts = [part for part in value.split("/") if part not in ("", ".")]
     if any(part == ".." for part in parts):
-        raise PathValidationError("Der Snapshot-Pfad darf kein '..' enthalten.")
+        raise PathValidationError("The snapshot path must not contain '..'.")
     normalized = "/" + "/".join(parts)
     return normalized if normalized != "" else "/"
 
 
 def literal_restic_pattern(path: str) -> str:
-    """Escaped Glob-Metazeichen, damit eine Browserauswahl exakt bleibt."""
+    """Escapes glob metacharacters so a selection in the browser stays exact."""
 
     normalized = normalize_snapshot_path(path, allow_empty=False)
-    # Restic-Patterns verstehen die üblichen Glob-Zeichen. Zeichenklassen
-    # bilden portable Literale, ohne Windows-Backslash als Escape zu benötigen.
+    # restic patterns understand the usual glob characters. Character classes
+    # form portable literals without needing the Windows backslash as escape.
     return normalized.replace("[", "[[]").replace("*", "[*]").replace("?", "[?]")
 
 
 def validate_hostname(hostname: str) -> str:
-    """Validiert den unmittelbaren Repository-Unterordner."""
+    """Validates the immediate repository subfolder."""
 
     host = (hostname or "").strip()
     if not host or host in {".", ".."}:
-        raise PathValidationError("Der Hostname ist leer oder ungültig.")
+        raise PathValidationError("The host name is empty or invalid.")
     if any(char in host for char in ("/", "\\", "\x00", ":")):
-        raise PathValidationError("Der Hostname darf keine Pfadtrennzeichen enthalten.")
+        raise PathValidationError("The host name must not contain path separators.")
     return host
 
 
 def join_repo_path(backup_base_path: str, hostname: str) -> str:
     base = (backup_base_path or "").strip()
     if not base:
-        raise PathValidationError("Der Backup-Basispfad ist leer.")
+        raise PathValidationError("The backup base path is empty.")
     return os.path.join(base, validate_hostname(hostname))
 
 
 def windows_extended_path(path: str) -> str:
-    """Gibt für lokale Dateioperationen einen absoluten Windows-Langpfad zurück."""
+    """Returns an absolute Windows long path for local file operations."""
 
     if os.name != "nt" or not path:
         return path
@@ -78,7 +77,7 @@ def windows_extended_path(path: str) -> str:
 
 
 def is_remote_windows_path(path: str) -> bool:
-    """Erkennt UNC- und gemappte Netzlaufwerkpfade unter Windows."""
+    """Detects UNC paths and mapped network drives on Windows."""
 
     value = (path or "").strip()
     if value.startswith("\\\\"):
@@ -103,7 +102,7 @@ def is_within(child: str, parent: str) -> bool:
 
 
 def safe_component(value: str, fallback: str = "restore") -> str:
-    """Erzeugt einen kurzen, Windows-kompatiblen Namensbestandteil."""
+    """Creates a short, Windows-compatible name component."""
 
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", value or "").strip(" .-")
     return (cleaned or fallback)[:40]

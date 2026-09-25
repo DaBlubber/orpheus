@@ -1,4 +1,4 @@
-"""Auflösung mitgelieferter Dateien - im Quellbetrieb wie im PyInstaller-Bundle."""
+"""Locating bundled files - both when running from source and from a PyInstaller bundle."""
 
 from __future__ import annotations
 
@@ -7,10 +7,10 @@ import sys
 
 
 def bundle_dir() -> str:
-    """Verzeichnis, in dem die mitgelieferten Dateien liegen.
+    """Directory that holds the bundled files.
 
-    Im PyInstaller-Bundle ist das der entpackte Temporaerordner (``sys._MEIPASS``),
-    im Quellbetrieb die Wurzel des Repos.
+    In a PyInstaller bundle this is the extracted temporary folder (``sys._MEIPASS``),
+    when running from source it is the repository root.
     """
     if getattr(sys, "frozen", False):
         base = getattr(sys, "_MEIPASS", None)
@@ -21,10 +21,10 @@ def bundle_dir() -> str:
 
 
 def icon_file() -> str | None:
-    """Pfad zu orpheus.ico, oder None wenn die Datei fehlt.
+    """Path to orpheus.ico, or None if the file is missing.
 
-    Fehlt sie, laeuft die Anwendung ohne eigenes Fenstersymbol weiter - ein
-    fehlendes Symbol ist kein Grund, den Start abzubrechen.
+    Without it the application simply runs without its own window icon - a
+    missing icon is no reason to abort the start.
     """
     candidate = os.path.join(bundle_dir(), "assets", "orpheus.ico")
     return candidate if os.path.isfile(candidate) else None

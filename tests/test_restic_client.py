@@ -44,13 +44,13 @@ def test_discover_hosts_uses_immediate_directories_only(tmp_path):
 
 def test_discover_hosts_classifies_unreachable_path(tmp_path):
     with pytest.raises(rc.ResticError) as caught:
-        rc.discover_hosts(str(tmp_path / "fehlt"))
+        rc.discover_hosts(str(tmp_path / "missing"))
     assert caught.value.kind in {"network", "missing", "restic"}
-    assert "nicht erreichbar" in caught.value.user_message() or "nicht gefunden" in caught.value.user_message()
+    assert "not reachable" in caught.value.user_message() or "not found" in caught.value.user_message()
 
 
 def test_argument_builders_preserve_windows_repo_and_make_exact_include():
-    repo = r"\\nas\Backup Ablage\HOST-Ä"
+    repo = r"\\nas\Backup Store\HOST-Ä"
     assert rc.build_snapshots_args(repo) == ["-r", repo, "snapshots", "--json"]
     args = rc.build_restore_args(repo, "abc12345", "/Daten/a*.txt", r"C:\Staging Lauf")
     assert args == [
@@ -86,14 +86,14 @@ def test_progress_parser():
     )
     assert event.message_type == "status"
     assert event.percent_done == 0.25
-    assert "2 von 8" in event.message
-    assert rc.parse_progress_line("kein json") is None
+    assert "2 of 8" in event.message
+    assert rc.parse_progress_line("not json") is None
 
 
 def test_runner_keeps_password_out_of_command_and_reports_progress():
     capture = {}
     process = FakeProcess(
-        stdout='{"message_type":"status","percent_done":0.5,"message":"läuft"}\n',
+        stdout='{"message_type":"status","percent_done":0.5,"message":"running…"}\n',
         stderr="Hinweis\n",
     )
     progress = []
@@ -106,7 +106,7 @@ def test_runner_keeps_password_out_of_command_and_reports_progress():
     assert capture["kwargs"]["env"]["RESTIC_PASSWORD"] == "sehr-geheim"
     assert capture["kwargs"]["shell"] is False
     assert result.warnings == ("Hinweis",)
-    assert progress == [(0.5, "läuft")]
+    assert progress == [(0.5, "running…")]
 
 
 @pytest.mark.parametrize(

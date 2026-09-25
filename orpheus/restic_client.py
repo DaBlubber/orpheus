@@ -1,4 +1,4 @@
-"""Robuste, abbrechbare Prozessschicht für die Windows-restic-CLI."""
+"""Robust, cancellable process layer for the Windows restic CLI."""
 
 from __future__ import annotations
 
@@ -20,11 +20,11 @@ ProgressCallback = Callable[[float | None, str], None]
 
 
 class OperationCancelled(RuntimeError):
-    """Eine laufende Operation wurde ausdrücklich abgebrochen."""
+    """A running operation was explicitly cancelled."""
 
 
 class ResticError(RuntimeError):
-    """Ein klassifizierter Restic-/Repositoryfehler mit Handlungsempfehlung."""
+    """A classified restic/repository error with a recommended action."""
 
     def __init__(
         self,
@@ -46,7 +46,7 @@ class ResticError(RuntimeError):
         if self.action:
             parts.append(self.action)
         if self.detail and self.detail.strip() != str(self).strip():
-            parts.append(f"Technisches Detail: {self.detail.strip()}")
+            parts.append(f"Technical detail: {self.detail.strip()}")
         return "\n\n".join(parts)
 
 
@@ -82,24 +82,24 @@ def restic_exe() -> str:
 
 
 def discover_hosts(backup_base_path: str) -> list[str]:
-    """Liefert unmittelbare Repository-Unterordner, ohne das NAS zu verändern."""
+    """Returns the immediate repository subfolders without changing anything on the NAS."""
 
     base = (backup_base_path or "").strip()
     if not base:
         raise ResticError(
-            "Der Backup-Basispfad ist leer.", kind="repository",
-            action="Wählen Sie das Netzlaufwerk oder einen UNC-Basispfad aus.",
+            "The backup base path is empty.", kind="repository",
+            action="Choose the network drive or a UNC base path.",
         )
     try:
         with os.scandir(base) as entries:
             hosts = [entry.name for entry in entries if entry.is_dir()]
     except OSError as exc:
-        raise _classify_failure(str(exc), returncode=None, fallback="Der Backup-Basispfad ist nicht erreichbar.") from exc
+        raise _classify_failure(str(exc), returncode=None, fallback="The backup base path is not reachable.") from exc
     return sorted(hosts, key=str.casefold)
 
 
 def discover_hosts_cancellable(backup_base_path: str, cancel_event: threading.Event) -> list[str]:
-    """Kapselt den nicht abbrechbaren Windows-Dateisystemaufruf in einen Daemon."""
+    """Wraps the non-cancellable Windows file system call in a daemon thread."""
 
     result_queue: queue.Queue[tuple[bool, object]] = queue.Queue(maxsize=1)
 
@@ -113,7 +113,7 @@ def discover_hosts_cancellable(backup_base_path: str, cancel_event: threading.Ev
     while True:
         if cancel_event.is_set():
             raise OperationCancelled(
-                "Die Hostsuche wurde abgebrochen. Ein blockierter Windows-Netzwerkzugriff kann im Hintergrund auslaufen."
+                "The host search was cancelled. A blocked Windows network access may still finish in the background."
             )
         try:
             success, value = result_queue.get(timeout=0.1)
@@ -128,7 +128,7 @@ def repo_path(backup_base_path: str, hostname: str) -> str:
     try:
         return join_repo_path(backup_base_path, hostname)
     except PathValidationError as exc:
-        raise ResticError(str(exc), kind="path", action="Wählen Sie einen Host aus der Liste.") from exc
+        raise ResticError(str(exc), kind="path", action="Choose a host from the list.") from exc
 
 
 def build_snapshots_args(repo: str) -> list[str]:
@@ -145,7 +145,7 @@ def build_dump_args(repo: str, snapshot_id: str, file_path: str) -> list[str]:
 
 def build_restore_args(repo: str, snapshot_id: str, include_path: str, target: str) -> list[str]:
     if not target or "\x00" in target:
-        raise ResticError("Der Staging-Zielpfad ist ungültig.", kind="path")
+        raise ResticError("The staging target path is invalid.", kind="path")
     args = ["-r", repo, "restore", _validate_snapshot_id(snapshot_id), "--target", target, "--json"]
     include = normalize_snapshot_path(include_path) if include_path else ""
     if include and include != "/":
@@ -156,7 +156,7 @@ def build_restore_args(repo: str, snapshot_id: str, include_path: str, target: s
 def _validate_snapshot_id(snapshot_id: str) -> str:
     value = (snapshot_id or "").strip()
     if not value or value.startswith("-") or any(char in value for char in ("\x00", "\r", "\n", "/", "\\")):
-        raise ResticError("Die Snapshot-ID ist ungültig.", kind="path", action="Laden Sie die Snapshotliste erneut.")
+        raise ResticError("The snapshot ID is invalid.", kind="path", action="Reload the snapshot list.")
     return value
 
 
@@ -165,11 +165,11 @@ def parse_snapshot_list(payload: str) -> list[dict]:
         parsed = json.loads(payload)
     except json.JSONDecodeError as exc:
         raise ResticError(
-            "Restic hat keine gültige Snapshotliste geliefert.", kind="json",
-            detail=str(exc), action="Prüfen Sie Restic-Version und Repository; laden Sie danach erneut.",
+            "restic did not return a valid snapshot list.", kind="json",
+            detail=str(exc), action="Check the restic version and the repository, then reload.",
         ) from exc
     if not isinstance(parsed, list) or not all(isinstance(item, dict) for item in parsed):
-        raise ResticError("Die Restic-Snapshotliste hat ein unerwartetes Format.", kind="json")
+        raise ResticError("The restic snapshot list has an unexpected format.", kind="json")
     return parsed
 
 
@@ -203,9 +203,9 @@ def parse_ls_json_lines(payload: str, requested_path: str) -> list[dict]:
             nodes.append(item)
     if malformed:
         raise ResticError(
-            "Die Dateiliste von Restic war unvollständig oder beschädigt.", kind="json",
-            detail=f"Ungültige JSON-Zeilen: {', '.join(malformed[:8])}",
-            action="Prüfen Sie die Netzverbindung und laden Sie das Verzeichnis erneut.",
+            "The file list from restic was incomplete or corrupted.", kind="json",
+            detail=f"Invalid JSON lines: {', '.join(malformed[:8])}",
+            action="Check the network connection and reload the directory.",
         )
     return nodes
 
@@ -229,9 +229,9 @@ def parse_progress_line(line: str) -> ResticEvent | None:
     if not message and message_type == "status":
         files_done = value.get("files_restored", 0)
         total_files = value.get("total_files", 0)
-        message = f"{files_done} von {total_files} Dateien"
+        message = f"{files_done} of {total_files} files"
     if not message and message_type == "summary":
-        message = "Restic-Wiederherstellung abgeschlossen"
+        message = "restic restore finished"
     return ResticEvent(message_type, percent_done, message, value)
 
 
@@ -245,10 +245,10 @@ def run_restic(
     parse_progress: bool = False,
     popen_factory=None,
 ) -> ResticRunResult:
-    """Startet Restic ohne Shell und drainiert stdout/stderr parallel.
+    """Starts restic without a shell and drains stdout/stderr in parallel.
 
-    Das Passwort ist ausschließlich Teil einer privaten Kopie der Umgebung des
-    Kindprozesses. Weder Resultat noch Ausnahme enthalten diese Umgebung.
+    The password only ever exists in a private copy of the child process
+    environment. Neither the result nor any exception contains that environment.
     """
 
     argument_list = [str(item) for item in args]
@@ -272,7 +272,7 @@ def run_restic(
             creationflags=creationflags,
         )
     except OSError as exc:
-        raise _classify_failure(str(exc), returncode=None, fallback="Restic konnte nicht gestartet werden.") from exc
+        raise _classify_failure(str(exc), returncode=None, fallback="restic could not be started.") from exc
 
     output_queue: queue.Queue[tuple[str, str | None]] = queue.Queue()
 
@@ -320,19 +320,19 @@ def run_restic(
                 if event is not None:
                     events.append(event)
                     if progress and (event.percent_done is not None or event.message):
-                        progress(event.percent_done, event.message or "Wiederherstellung läuft …")
+                        progress(event.percent_done, event.message or "Restore running ...")
         else:
             stderr_parts.append(line)
 
     returncode = process.wait()
     if cancelling:
-        raise OperationCancelled("Die laufende Restic-Operation wurde abgebrochen.")
+        raise OperationCancelled("The running restic operation was cancelled.")
     stdout = "".join(stdout_parts)
     stderr = "".join(stderr_parts).strip()
     error_events = [event.message for event in events if event.message_type.lower() in {"error", "fatal"}]
     if returncode != 0 or error_events:
         detail = stderr or "\n".join(message for message in error_events if message)
-        fallback = "Restic hat die Operation nicht vollständig abgeschlossen." if error_events else "Restic hat die Operation abgebrochen."
+        fallback = "restic did not complete the operation." if error_events else "restic aborted the operation."
         raise _classify_failure(detail, returncode=returncode, fallback=fallback)
     warnings = tuple(line.strip() for line in stderr.splitlines() if line.strip())
     return ResticRunResult(tuple(argument_list), returncode, stdout, stderr, tuple(events), warnings)
@@ -365,10 +365,10 @@ def dump_file(
     *,
     cancel_event: threading.Event | None = None,
 ) -> bytes:
-    """Liest höchstens `max_bytes`; ein größerer Dump wird gezielt beendet."""
+    """Reads at most `max_bytes`; a larger dump is terminated deliberately."""
 
     if max_bytes <= 0:
-        raise ValueError("max_bytes muss positiv sein")
+        raise ValueError("max_bytes must be positive")
     command = [restic_exe(), *build_dump_args(repo, snapshot_id, file_path)]
     environment = dict(os.environ)
     environment["RESTIC_PASSWORD"] = password
@@ -381,7 +381,7 @@ def dump_file(
             shell=False, creationflags=creationflags,
         )
     except OSError as exc:
-        raise _classify_failure(str(exc), returncode=None, fallback="Restic konnte nicht gestartet werden.") from exc
+        raise _classify_failure(str(exc), returncode=None, fallback="restic could not be started.") from exc
 
     stderr_parts: list[bytes] = []
     stdout_queue: queue.Queue[bytes | None] = queue.Queue()
@@ -447,10 +447,10 @@ def dump_file(
     process.stdout.close()
     process.stderr.close()
     if cancelled:
-        raise OperationCancelled("Die Vorschau wurde abgebrochen.")
+        raise OperationCancelled("The preview was cancelled.")
     if not truncated and process.returncode != 0:
         detail = b"".join(stderr_parts).decode("utf-8", errors="replace").strip()
-        raise _classify_failure(detail, returncode=process.returncode, fallback="Die Datei konnte nicht gelesen werden.")
+        raise _classify_failure(detail, returncode=process.returncode, fallback="The file could not be read.")
     return bytes(data[:max_bytes])
 
 
@@ -464,7 +464,7 @@ def restore_snapshot(
     cancel_event: threading.Event | None = None,
     progress: ProgressCallback | None = None,
 ) -> ResticRunResult:
-    """Stellt ausschließlich in den vom Staging-Service erzeugten Ordner wieder her."""
+    """Restores only into the folder created by the staging service."""
 
     return run_restic(
         build_restore_args(repo, snapshot_id, include_path, staging_target), password,
@@ -475,24 +475,26 @@ def restore_snapshot(
 def _classify_failure(detail: str, *, returncode: int | None, fallback: str) -> ResticError:
     text = (detail or "").strip()
     lower = text.casefold()
+    # The needles also contain German Windows messages: on a German Windows restic
+    # passes through localised system errors.
     classifications = [
-        (("wrong password", "no key found", "password is incorrect"), "password", "Das Repository-Passwort ist falsch oder passt nicht zu diesem Repository.", "Geben Sie das Passwort erneut ein und speichern Sie es erst nach erfolgreichem Laden."),
-        (("already locked", "repository is locked", "unable to create lock"), "locked", "Das Repository ist gesperrt.", "Warten Sie auf laufende Restic-Aufgaben. Entfernen Sie Locks nur nach Prüfung mit `restic unlock`."),
-        (("no space left", "disk full", "not enough space", "nicht genügend speicher"), "space", "Auf dem Datenträger ist nicht genügend freier Speicherplatz.", "Geben Sie Speicher frei oder wählen Sie einen anderen Staging-/Zielordner."),
-        (("access is denied", "permission denied", "zugriff verweigert"), "permission", "Der Zugriff wurde verweigert.", "Prüfen Sie Windows-Berechtigungen und die NAS-Anmeldung für den gewählten Pfad."),
-        (("network name", "network path", "device is not ready", "not reachable", "nicht erreichbar", "system cannot find the path", "pfad wurde nicht gefunden"), "network", "Das Netzlaufwerk oder Repository ist nicht erreichbar.", "Prüfen Sie NAS, VPN/Netzwerk und die Windows-Laufwerksverbindung; versuchen Sie es danach erneut."),
-        (("no such file", "cannot find the file", "system cannot find the file"), "missing", "Eine benötigte Datei oder `restic.exe` wurde nicht gefunden.", "Prüfen Sie `bin\\restic.exe`, Repositorypfad und Snapshot; laden Sie anschließend neu."),
+        (("wrong password", "no key found", "password is incorrect"), "password", "The repository password is wrong or does not belong to this repository.", "Enter the password again and only save it after a successful load."),
+        (("already locked", "repository is locked", "unable to create lock"), "locked", "The repository is locked.", "Wait for running restic jobs. Only remove locks with `restic unlock` after checking."),
+        (("no space left", "disk full", "not enough space", "nicht genügend speicher"), "space", "There is not enough free space on the disk.", "Free up space or choose a different staging/target folder."),
+        (("access is denied", "permission denied", "zugriff verweigert"), "permission", "Access was denied.", "Check the Windows permissions and the NAS login for the chosen path."),
+        (("network name", "network path", "device is not ready", "not reachable", "nicht erreichbar", "system cannot find the path", "pfad wurde nicht gefunden"), "network", "The network drive or repository is not reachable.", "Check the NAS, VPN/network and the Windows drive mapping, then try again."),
+        (("no such file", "cannot find the file", "system cannot find the file"), "missing", "A required file or `restic.exe` was not found.", "Check `bin\\restic.exe`, the repository path and the snapshot, then reload."),
     ]
     for needles, kind, message, action in classifications:
         if any(needle in lower for needle in needles):
             return ResticError(message, kind=kind, detail=text, action=action, returncode=returncode)
     if returncode is None and ("winerror 2" in lower or "errno 2" in lower):
         return ResticError(
-            "`restic.exe` wurde nicht gefunden.", kind="executable", detail=text,
-            action="Legen Sie die passende Windows-Version unter `bin\\restic.exe` ab.",
+            "`restic.exe` was not found.", kind="executable", detail=text,
+            action="Place the matching Windows build at `bin\\restic.exe`.",
         )
     return ResticError(
         fallback, kind="restic", detail=text,
-        action="Prüfen Sie Repository, Netzwerk und freien Speicherplatz und versuchen Sie es erneut.",
+        action="Check the repository, the network and free disk space, then try again.",
         returncode=returncode,
     )

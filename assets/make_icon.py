@@ -1,10 +1,10 @@
-"""Erzeugt assets/orpheus.ico aus der in diesem Skript beschriebenen Geometrie.
+"""Generates assets/orpheus.ico from the geometry described in this script.
 
-Bewusst nur mit Pillow, ohne SVG-Rasterizer: cairosvg/GTK unter Windows
-einzurichten ist aufwaendiger als die paar geometrischen Formen direkt zu
-zeichnen. Die Datei orpheus.svg daneben zeigt dieselbe Form als Quellgrafik.
+Deliberately Pillow only, without an SVG rasteriser: setting up cairosvg/GTK on
+Windows is more work than drawing these few geometric shapes directly. The
+orpheus.svg next to it shows the same shape as a source graphic.
 
-Aufruf ohne Argumente, idempotent:
+Run without arguments, idempotent:
 
     py -3 assets\\make_icon.py
 """
@@ -16,11 +16,10 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 BASE = 256
-# Supersampling: erst gross zeichnen, dann per LANCZOS herunterrechnen.
+# Supersampling: draw large first, then scale down with LANCZOS.
 SS = 4
 
-# Tuerkis/Smaragd - klar getrennt von Tempest (Cyan-Blau), Hestia (Orange),
-# Janus (Violett) und Helios (Gold).
+# Turquoise/emerald - clearly distinct from the colours of sibling tools.
 GRADIENT_TOP = (94, 234, 212)
 GRADIENT_BOTTOM = (15, 118, 110)
 GLYPH = (255, 255, 255, 255)
@@ -43,28 +42,28 @@ def _gradient(size: int) -> Image.Image:
 
 
 def _draw_glyph(draw: ImageDraw.ImageDraw, s: float) -> None:
-    """Pfeil, der aus einem offenen Behaelter aufsteigt - das Zurueckholen.
+    """An arrow rising out of an open container - bringing something back.
 
-    Orpheus holt Verlorenes aus der Unterwelt zurueck: unten der geoeffnete
-    Speicher, daraus der Pfeil nach oben. Ein Pfeil ueber einer blossen Linie
-    waere das gaengige Upload-Symbol gewesen - fuer ein Wiederherstellungs-
-    werkzeug genau die falsche Aussage. Eine Leier waere motivisch naeher,
-    ihre Saiten verschwinden bei 16x16 aber vollstaendig.
+    Orpheus brings the lost back from the underworld: the opened store at the
+    bottom, the arrow rising out of it. An arrow above a plain line would have
+    been the common upload symbol - exactly the wrong message for a restore
+    tool. A lyre would fit the myth better, but its strings disappear
+    completely at 16x16.
     """
     def r(*v: float) -> list[float]:
         return [x * s for x in v]
 
     clear = (0, 0, 0, 0)
 
-    # Pfeilspitze.
+    # Arrow head.
     draw.polygon(
         [(128 * s, 40 * s), (186 * s, 108 * s), (70 * s, 108 * s)],
         fill=GLYPH,
     )
-    # Schaft, bewusst breit (32 von 256) damit er bei 16x16 nicht verschwindet.
+    # Shaft, deliberately wide (32 of 256) so it does not vanish at 16x16.
     draw.rounded_rectangle(r(112, 96, 144, 176), radius=8 * s, fill=GLYPH)
-    # Offener Behaelter: aussen voll, innen ausgestanzt. Waende 22 von 256,
-    # duenner laeuft bei 16x16 zu.
+    # Open container: filled outside, punched out inside. Walls 22 of 256,
+    # thinner fills in at 16x16.
     draw.rounded_rectangle(r(52, 148, 204, 216), radius=18 * s, fill=GLYPH)
     draw.rounded_rectangle(r(74, 126, 182, 194), radius=8 * s, fill=clear)
 
@@ -90,8 +89,8 @@ def build(size: int = BASE) -> Image.Image:
 def main() -> None:
     out = Path(__file__).resolve().parent / "orpheus.ico"
     master = build(BASE)
-    # Jede Stufe einzeln aus dem Supersample rechnen statt Pillow skalieren zu
-    # lassen - das ergibt bei 16x16 sichtbar sauberere Kanten.
+    # Compute every size separately from the supersample instead of letting
+    # Pillow scale - that gives visibly cleaner edges at 16x16.
     frames = [build(n) for n in ICO_SIZES if n != BASE]
     master.save(out, format="ICO", sizes=[(n, n) for n in ICO_SIZES], append_images=frames)
     print(f"geschrieben: {out} ({', '.join(f'{n}x{n}' for n in ICO_SIZES)})")

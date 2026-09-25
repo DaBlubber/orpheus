@@ -1,4 +1,4 @@
-"""Persistenter, fehlertoleranter Cache für Restic-Verzeichnislisten."""
+"""Persistent, fault-tolerant cache for restic directory listings."""
 
 from __future__ import annotations
 
@@ -43,5 +43,5 @@ class ListingCache:
                 json.dump(entries, handle, ensure_ascii=False)
             temporary.replace(cache_file)
         except OSError:
-            # Der Cache ist eine Optimierung; ein Schreibfehler darf die Ansicht nicht stören.
+            # The cache is an optimisation; a write error must not disturb the view.
             return

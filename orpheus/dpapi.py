@@ -1,4 +1,4 @@
-"""Windows-DPAPI für an den aktuellen Benutzer gebundene Geheimnisse."""
+"""Windows DPAPI for secrets bound to the current user."""
 
 from __future__ import annotations
 
@@ -22,18 +22,18 @@ def _input_blob(data: bytes) -> tuple[_DATA_BLOB, ctypes.Array]:
 
 def _require_windows():
     if os.name != "nt" or not hasattr(ctypes, "windll"):
-        raise OSError("Windows DPAPI ist auf diesem System nicht verfügbar.")
+        raise OSError("Windows DPAPI is not available on this system.")
 
 
 def _last_error(operation: str) -> OSError:
     code = ctypes.get_last_error()
     if not code and hasattr(ctypes, "windll"):
         code = ctypes.windll.kernel32.GetLastError()
-    return OSError(code, f"{operation} ist fehlgeschlagen")
+    return OSError(code, f"{operation} failed")
 
 
 def protect(plaintext: str) -> bytes:
-    """Verschlüsselt Text für den aktuellen Windows-Benutzer, ohne UI-Prompt."""
+    """Encrypts text for the current Windows user, without a UI prompt."""
 
     _require_windows()
     in_blob, in_buffer = _input_blob(plaintext.encode("utf-8"))
@@ -52,7 +52,7 @@ def protect(plaintext: str) -> bytes:
 
 
 def unprotect(ciphertext: bytes) -> str:
-    """Entschlüsselt aktuelle und unverändert migrierte alte DPAPI-Blobs."""
+    """Decrypts current DPAPI blobs and old ones migrated unchanged."""
 
     _require_windows()
     in_blob, in_buffer = _input_blob(ciphertext)

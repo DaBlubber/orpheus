@@ -1,4 +1,4 @@
-"""Orpheus-Anwendungssteuerung; View und Kernlogik bleiben getrennt testbar."""
+"""Orpheus application controller; view and core logic stay separately testable."""
 
 from __future__ import annotations
 
@@ -25,11 +25,14 @@ from .restore_service import (
 from .tasks import TaskController
 from .ui import OrpheusView
 
+# placeholder child of a directory that has not been loaded yet
+LOADING = "Loading ..."
+
 
 class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title(f"{APP_NAME} – sichere Restic-Wiederherstellung")
+        self.title(f"{APP_NAME} - safe restic restore")
         self._apply_window_icon()
         self.geometry("1260x820")
         self.minsize(980, 650)
@@ -65,9 +68,9 @@ class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
             self.after(
                 100,
                 lambda error=exc: messagebox.showwarning(
-                    "Cache nur temporär",
-                    "Der AppData-Ordner ist nicht beschreibbar. Der Verzeichnis-Cache wird für diese Sitzung im "
-                    f"Temp-Ordner geführt.\n\n{error}",
+                    "Cache is temporary only",
+                    "The AppData folder is not writable. The directory cache is kept in the temp "
+                    f"folder for this session.\n\n{error}",
                     parent=self,
                 ),
             )
@@ -93,18 +96,18 @@ class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
         self.bind("<Control-l>", lambda _event: self._load_snapshots())
         self.bind("<Escape>", lambda _event: self._cancel_active())
         self.view.password_entry.bind("<Return>", lambda _event: self._load_snapshots())
-        self._show_preview_placeholder("Datei auswählen für Vorschau")
+        self._show_preview_placeholder("Select a file to preview")
         self._refresh_action_states()
         warning = cfg.config_warning()
         if warning:
-            self.after(100, lambda: messagebox.showwarning("Konfigurationshinweis", warning, parent=self))
+            self.after(100, lambda: messagebox.showwarning("Configuration notice", warning, parent=self))
         if self.config_data.get("backup_base_path"):
             self.after(150, self._refresh_hosts)
         else:
             self.after(100, self.view.base_entry.focus_set)
         self.after(250, self._recover_latest_staging)
 
-    # ------------------------------------------------------------ gemeinsame UI
+    # ------------------------------------------------------------ shared UI
     def _start_task(self, name, initial_status, operation, on_success, on_error=None) -> bool:
         self.view.set_busy(True)
         self.view.show_progress(None, initial_status)
@@ -117,7 +120,7 @@ class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
             self._task_finished,
         )
         if not started:
-            self.view.status_var.set("Bitte warten Sie, bis die laufende Aktion beendet ist.")
+            self.view.status_var.set("Please wait until the running action has finished.")
             self.view.set_busy(False)
         return started
 
@@ -142,32 +145,32 @@ class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
     def _show_error(self, error: Exception):
         if isinstance(error, rc.OperationCancelled):
             self.view.status_var.set(str(error))
-            messagebox.showinfo("Abgebrochen", str(error), parent=self)
+            messagebox.showinfo("Cancelled", str(error), parent=self)
             return
         if isinstance(error, rc.ResticError):
             message = error.user_message()
         elif isinstance(error, (StagingError, cfg.ConfigError, CollisionError)):
             message = str(error)
         elif isinstance(error, OSError):
-            message = f"Windows konnte die Aktion nicht ausführen.\n\n{error}\n\nPrüfen Sie Pfad, Berechtigungen und Netzverbindung."
+            message = f"Windows could not perform the action.\n\n{error}\n\nCheck the path, permissions and network connection."
         else:
-            message = f"Die Aktion konnte nicht abgeschlossen werden.\n\n{type(error).__name__}: {error}"
-        self.view.status_var.set("Aktion fehlgeschlagen. Beachten Sie den Hinweis.")
-        messagebox.showerror("Orpheus – Aktion nicht abgeschlossen", message, parent=self)
+            message = f"The action could not be completed.\n\n{type(error).__name__}: {error}"
+        self.view.status_var.set("Action failed. See the message.")
+        messagebox.showerror("Orpheus - action not completed", message, parent=self)
 
     def _cancel_active(self):
         if self.tasks.busy:
             self.tasks.cancel()
-            self.view.status_var.set("Abbruch angefordert … Restic wird sauber beendet.")
+            self.view.status_var.set("Cancellation requested ... restic is being stopped cleanly.")
 
-    # ------------------------------------------------------------ Einstellungen
+    # ------------------------------------------------------------ settings
     def _pick_base_path(self):
-        path = filedialog.askdirectory(title="Backup-Basisordner wählen", parent=self)
+        path = filedialog.askdirectory(title="Choose the backup base folder", parent=self)
         if path:
             self.view.base_path_var.set(path)
 
     def _pick_staging_root(self):
-        path = filedialog.askdirectory(title="Lokalen Staging-Basisordner wählen", parent=self)
+        path = filedialog.askdirectory(title="Choose the local staging base folder", parent=self)
         if path:
             self.view.staging_root_var.set(path)
             self.config_data["staging_dir"] = path
@@ -201,26 +204,26 @@ class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
             if sessions:
                 session = sessions[0]
                 self._active_staging = session
-                suffix = "vollständig" if session.status == "complete" else f"Status: {session.status}"
-                self.view.staging_path_var.set(f"{session.content_path} ({suffix}, wiederaufgenommen)")
-                self.view.status_var.set("Ein vorhandener Staging-Lauf wurde wiederaufgenommen. Prüfen oder verwerfen Sie ihn.")
+                suffix = "complete" if session.status == "complete" else f"status: {session.status}"
+                self.view.staging_path_var.set(f"{session.content_path} ({suffix}, resumed)")
+                self.view.status_var.set("An existing staging run was resumed. Inspect or discard it.")
             else:
-                self.view.staging_path_var.set("Noch kein geprüfter Staging-Inhalt")
+                self.view.staging_path_var.set("No checked staging content yet")
             self._refresh_action_states()
 
-        threading.Thread(target=worker, name="Orpheus-Staging-Suche", daemon=True).start()
+        threading.Thread(target=worker, name="Orpheus-staging-scan", daemon=True).start()
 
     def _refresh_hosts(self):
         if self.tasks.busy:
             return
         base = self.view.base_path_var.get().strip()
         if not base:
-            messagebox.showwarning("Basispfad fehlt", "Wählen Sie zuerst den Backup-Basispfad aus.", parent=self)
+            messagebox.showwarning("Base path missing", "Choose the backup base path first.", parent=self)
             self.view.base_entry.focus_set()
             return
 
         def operation(cancel, progress):
-            progress(None, "Prüfe Backup-Basispfad und suche Hosts …")
+            progress(None, "Checking the backup base path and looking for hosts ...")
             return rc.discover_hosts_cancellable(base, cancel)
 
         def success(hosts):
@@ -236,18 +239,18 @@ class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
             if hosts:
                 self.view.host_combo.current(0)
                 self._on_host_selected()
-                self.view.status_var.set(f"{len(hosts)} Host(s) gefunden. Laden Sie jetzt die Snapshots.")
+                self.view.status_var.set(f"{len(hosts)} host(s) found. Now load the snapshots.")
                 self.view.snapshots_button.focus_set()
             else:
-                self.view.status_var.set("Keine Host-Unterordner gefunden. Prüfen Sie das Repository-Schema <Basispfad>\\<HOSTNAME>.")
+                self.view.status_var.set("No host subfolders found. Check the repository layout <base path>\\<HOSTNAME>.")
                 messagebox.showinfo(
-                    "Keine Hosts gefunden",
-                    "Der Basispfad ist erreichbar, enthält aber keine Host-Unterordner.\n\n"
-                    "Erwartet wird: <Basispfad>\\<HOSTNAME>.",
+                    "No hosts found",
+                    "The base path is reachable but contains no host subfolders.\n\n"
+                    "Expected: <base path>\\<HOSTNAME>.",
                     parent=self,
                 )
 
-        self._start_task("Hosts", "Suche Hosts …", operation, success)
+        self._start_task("Hosts", "Looking for hosts ...", operation, success)
 
     def _on_host_selected(self, _event=None):
         self._cancel_browser_workers()
@@ -265,16 +268,16 @@ class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
         self._snapshot_ids.clear()
         self.view.snapshot_tree.delete(*self.view.snapshot_tree.get_children())
         self._clear_file_tree()
-        self.view.selected_path_var.set("(gesamter Snapshot)")
-        self.view.file_status_var.set("Snapshots laden")
-        self._show_preview_placeholder("Snapshot und Datei auswählen")
+        self.view.selected_path_var.set("(entire snapshot)")
+        self.view.file_status_var.set("Load the snapshots")
+        self._show_preview_placeholder("Select a snapshot and a file")
         self._refresh_action_states()
 
     def _save_password(self):
         host = self.view.host_var.get()
         password = self.view.password_var.get()
         if not host or not password:
-            messagebox.showwarning("Angaben fehlen", "Wählen Sie einen Host und geben Sie ein Passwort ein.", parent=self)
+            messagebox.showwarning("Missing input", "Choose a host and enter a password.", parent=self)
             return
         try:
             cfg.set_repo_password(host, password)
@@ -282,19 +285,19 @@ class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
             self._show_error(exc)
             return
         messagebox.showinfo(
-            "Passwort gespeichert",
-            f"Das Passwort für '{host}' wurde mit Windows DPAPI für Ihren Benutzer geschützt gespeichert.",
+            "Password saved",
+            f"The password for '{host}' was stored, protected by Windows DPAPI for your user.",
             parent=self,
         )
 
-    # ------------------------------------------------------------ Snapshots/Browser
+    # ------------------------------------------------------------ snapshots/browser
     def _load_snapshots(self):
         if self.tasks.busy:
             return
         host = self.view.host_var.get()
         password = self.view.password_var.get()
         if not host or not password:
-            messagebox.showwarning("Angaben fehlen", "Wählen Sie einen Host und geben Sie das Repository-Passwort ein.", parent=self)
+            messagebox.showwarning("Missing input", "Choose a host and enter the repository password.", parent=self)
             self.view.password_entry.focus_set()
             return
         try:
@@ -304,7 +307,7 @@ class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
             return
 
         def operation(cancel, progress):
-            progress(None, "Lade Snapshotliste von Restic …")
+            progress(None, "Loading the snapshot list from restic ...")
             return rc.list_snapshots(repo, password, cancel_event=cancel)
 
         def success(snapshots):
@@ -326,16 +329,16 @@ class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
                 self._snapshot_ids[item_id] = full_id
             count = len(self._snapshot_ids)
             self.view.status_var.set(
-                f"{count} Snapshot(s) geladen. Wählen Sie einen Snapshot."
-                if count else "Das Repository enthält keine Snapshots."
+                f"{count} snapshot(s) loaded. Select a snapshot."
+                if count else "The repository contains no snapshots."
             )
-            self.view.file_status_var.set("Snapshot auswählen" if count else "Keine Snapshots")
+            self.view.file_status_var.set("Select a snapshot" if count else "No snapshots")
             if count:
                 first = next(iter(self._snapshot_ids))
                 self.view.snapshot_tree.selection_set(first)
                 self.view.snapshot_tree.focus(first)
 
-        self._start_task("Snapshots", "Lade Snapshots …", operation, success)
+        self._start_task("Snapshots", "Loading snapshots ...", operation, success)
 
     def _on_snapshot_selected(self, _event=None):
         selected = self.view.snapshot_tree.selection()
@@ -348,9 +351,9 @@ class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
         self._current_snapshot_id = snapshot_id
         self._selected_include = ""
         self._clear_file_tree()
-        self.view.selected_path_var.set("(gesamter Snapshot)")
-        self.view.file_status_var.set("Lade oberste Ebene …")
-        self._show_preview_placeholder("Datei auswählen für Vorschau")
+        self.view.selected_path_var.set("(entire snapshot)")
+        self.view.file_status_var.set("Loading top level ...")
+        self._show_preview_placeholder("Select a file to preview")
         self._load_dir_async("", "/", self._browser_generation)
         self._refresh_action_states()
 
@@ -386,12 +389,12 @@ class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
             self.cache.put(repo, snapshot, path, entries)
             self.after(0, lambda: self._populate_dir(parent_iid, path, entries, generation))
 
-        threading.Thread(target=worker, name="Orpheus-Verzeichnis", daemon=True).start()
+        threading.Thread(target=worker, name="Orpheus-directory", daemon=True).start()
 
     def _directory_error(self, error: Exception, generation: int):
         if generation != self._browser_generation:
             return
-        self.view.file_status_var.set("Verzeichnis nicht geladen")
+        self.view.file_status_var.set("Directory not loaded")
         self._show_error(error)
 
     def _populate_dir(self, parent_iid: str, path: str, entries: list[dict], generation: int):
@@ -400,12 +403,12 @@ class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
         if parent_iid and not self.view.file_tree.exists(parent_iid):
             return
         children = self.view.file_tree.get_children(parent_iid)
-        if len(children) == 1 and self.view.file_tree.item(children[0], "text") == "Laden …":
+        if len(children) == 1 and self.view.file_tree.item(children[0], "text") == LOADING:
             self.view.file_tree.delete(children[0])
         for node in sorted(entries, key=lambda item: (item.get("type") != "dir", str(item.get("path", "")).casefold())):
             self._insert_node(parent_iid, node)
         if path == "/":
-            self.view.file_status_var.set(f"{len(entries)} Einträge")
+            self.view.file_status_var.set(f"{len(entries)} entries")
 
     def _insert_node(self, parent_iid: str, node: dict):
         path = str(node.get("path") or "")
@@ -414,23 +417,23 @@ class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
         size = "" if is_directory else format_bytes(int(node.get("size") or 0))
         mtime = str(node.get("mtime") or "")[:19].replace("T", " ")
         item_id = self.view.file_tree.insert(
-            parent_iid, "end", text=("Ordner: " if is_directory else "") + name,
+            parent_iid, "end", text=("Folder: " if is_directory else "") + name,
             values=(size, mtime), open=False,
         )
         self._iid_to_path[item_id] = path
         self._iid_to_node[item_id] = node
         if is_directory:
-            self.view.file_tree.insert(item_id, "end", text="Laden …")
+            self.view.file_tree.insert(item_id, "end", text=LOADING)
 
     def _on_tree_open(self, _event=None):
         item_id = self.view.file_tree.focus()
         children = self.view.file_tree.get_children(item_id)
-        if len(children) == 1 and self.view.file_tree.item(children[0], "text") == "Laden …":
+        if len(children) == 1 and self.view.file_tree.item(children[0], "text") == LOADING:
             path = self._iid_to_path.get(item_id)
             if path:
                 self._load_dir_async(item_id, path, self._browser_generation)
 
-    # ------------------------------------------------------------ Lebenszyklus
+    # ------------------------------------------------------------ lifecycle
     def _reset_repository_view(self):
         self._cancel_browser_workers()
         self.view.host_var.set("")
@@ -444,10 +447,10 @@ class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
         self._selected_include = ""
 
     def _apply_window_icon(self):
-        """Setzt das Fenstersymbol, wenn die Datei vorhanden ist.
+        """Sets the window icon if the file is present.
 
-        Tk wirft je nach Zustand der Datei unterschiedliche Fehler; ein
-        fehlendes oder unlesbares Symbol darf den Start nicht verhindern.
+        Tk raises different errors depending on the state of the file; a
+        missing or unreadable icon must not prevent the start.
         """
         path = icon_file()
         if not path:
@@ -462,8 +465,8 @@ class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
             return
         if self.tasks.busy:
             if not messagebox.askyesno(
-                "Laufende Aktion abbrechen?",
-                "Eine Aktion läuft noch. Orpheus fordert einen sauberen Abbruch an und schließt danach. Fortfahren?",
+                "Cancel the running action?",
+                "An action is still running. Orpheus requests a clean cancellation and closes afterwards. Continue?",
                 parent=self,
             ):
                 return
@@ -471,7 +474,7 @@ class OrpheusApp(PreviewControllerMixin, RestoreWorkflowMixin, tk.Tk):
             self.tasks.cancel()
             self._browser_cancel.set()
             self._preview_cancel.set()
-            self.view.status_var.set("Beende laufende Aktion vor dem Schließen …")
+            self.view.status_var.set("Stopping the running action before closing ...")
             self._wait_for_close()
             return
         self._browser_cancel.set()
