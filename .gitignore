@@ -1,0 +1,13 @@
+__pycache__/
+.pytest_cache/
+*.pyc
+build/
+dist/
+# *.spec  # tracked for reproducible builds
+.venv/
+venv/
+config.json
+*.secret
+staging/
+bin/restic.exe
+bin/rclone.exe
